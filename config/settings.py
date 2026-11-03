@@ -43,8 +43,12 @@ INSTALLED_APPS = [
     "django_filters",
 
     #Local apps
+    "accounts",
+    "complaints",
 
 ]
+
+AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
