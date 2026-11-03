@@ -1,13 +1,16 @@
+
 # Virtual environment
 venv/
 env/
+.venv/
+
+# Environment variables
+.env
 
 # Python
 __pycache__/
 *.py[cod]
-
-# Environment variables
-.env
+*.pyo
 
 # Django
 db.sqlite3
@@ -17,3 +20,11 @@ staticfiles/
 # IDE
 .vscode/
 .idea/
+
+# Testing
+.coverage
+htmlcov/
+
+# Operating system
+.DS_Store
+Thumbs.db
