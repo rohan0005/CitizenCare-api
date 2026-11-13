@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+import uuid
 
 # Create your models here.
 class Department(models.Model):
@@ -42,7 +43,7 @@ class Complaint(models.Model):
 		HIGH = "high", "High"
 		URGENT = "urgent", "Urgent"
 
-	tracking_id = models.CharField(max_length=30, unique=True)
+	tracking_id = models.CharField(max_length=30, unique=True, blank=True)
 	title = models.CharField(max_length=200)
 	description = models.TextField()
 	category = models.ForeignKey("Category", on_delete=models.PROTECT, related_name="complaints")
@@ -59,6 +60,11 @@ class Complaint(models.Model):
 	
 	def __str__(self):
 		return self.title
+
+	def save(self, *args, **kwargs):
+		if not self.tracking_id:
+			self.tracking_id = f"CC-{uuid.uuid4().hex[:8].upper()}"
+		super().save(*args, **kwargs)
 
 	class Meta:
 		ordering =["-created_at"]
