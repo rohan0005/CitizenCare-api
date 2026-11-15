@@ -30,7 +30,7 @@ class Category(models.Model):
 class Complaint(models.Model):
 
 	class Status(models.TextChoices):
-		PENDING = "pending", "Pending"
+		SUBMITTED = "submitted", "Submitted"
 		ASSIGNED = "assigned", "Assigned"
 		IN_PROGRESS = "in_progress", "In Progress"
 		RESOLVED = "resolved", "Resolved"
@@ -49,7 +49,7 @@ class Complaint(models.Model):
 	category = models.ForeignKey("Category", on_delete=models.PROTECT, related_name="complaints")
 	citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="submitted_complaints")
 	assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="assigned_complaints", null=True, blank=True)
-	status = models.CharField(max_length=20,choices=Status.choices,default=Status.PENDING)
+	status = models.CharField(max_length=20,choices=Status.choices,default=Status.SUBMITTED)
 	remarks = models.TextField(blank=True) 
 	priority =models.CharField(max_length=10, choices=Priority.choices,default=Priority.MEDIUM) 
 	location = models.CharField(max_length=255)
