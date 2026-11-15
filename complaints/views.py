@@ -99,4 +99,49 @@ class ComplaintViewSet(ModelViewSet):
 			"body": self.get_serializer(complaint).data
 			})
 
+	@action(
+		detail=True,
+		methods=['post'],
+		url_path="change-status",
+		permission_classes=[IsAuthenticated]
+		)
+	def update_status(self, request, *args, **kwargs):
+		allowed_transitions = {
+		"assigned": ["in_progress", "rejected"],
+		"in_progress": ["resolved", "rejected"],
+		"resolved": ["closed", "in_progress"],
+		"closed": [],
+		"rejected": []
+		}
+
+		complaint = self.get_object()
+
+		updated_status = request.data.get('status')
+
+		updated_status = updated_status.lower()
+		current_status = complaint.status
+
+		if request.user.role != "officer":
+			raise PermissionDenied("Only assigned officers can update complaint status.")
+
+		if complaint.assigned_to != request.user:
+			raise PermissionDenied("You can only change the status of complaints assigned to you.")
+
+		if not isinstance(updated_status, str):
+			raise ValidationError("Status must be a string.")
+
+		if updated_status not in allowed_transitions.get(current_status, []):
+			raise ValidationError(
+				f"Cannot change status from {current_status} to {updated_status}.")
+
+		complaint.status = updated_status
+		complaint.save()
+
+		return Response({"msg": "Complaint Status Updated.",
+			"status": True,
+			"body": self.get_serializer(complaint).data
+			})
+
+
+
 
