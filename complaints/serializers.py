@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Complaint, Department, Category
+from .models import Complaint, Department, Category, ActivityLog
 
 class DepartmentSerializer(serializers.ModelSerializer):
 	class Meta:
@@ -31,3 +31,10 @@ class ComplaintSerializer(serializers.ModelSerializer):
 		if title == description:
 			raise serializers.ValidationError('Title and description must not be same.')
 		return attrs
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+	class Meta:
+		model = ActivityLog
+		fields = "__all__"
+		read_only_fields =["id","complaint","user","action","old_value","new_value","created_at",]

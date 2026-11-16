@@ -1,6 +1,6 @@
 from rest_framework.viewsets import ModelViewSet
-from .serializers import ComplaintSerializer, DepartmentSerializer, CategorySerializer
-from .models import Complaint, Category, Department
+from .serializers import ComplaintSerializer, DepartmentSerializer, CategorySerializer,ActivityLogSerializer
+from .models import Complaint, Category, Department,ActivityLog
 from rest_framework.permissions import IsAuthenticated
 from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from accounts.models import User
+from .utils import create_activity_log
 
 class DepartmentViewSet(ModelViewSet):
 	serializer_class= DepartmentSerializer
@@ -43,7 +44,15 @@ class ComplaintViewSet(ModelViewSet):
 			return qs.filter(citizen=user)
 
 	def perform_create(self, serializer):
-		serializer.save(citizen=self.request.user)
+		complaint = serializer.save(citizen=self.request.user)
+
+		create_activity_log(
+			complaint=complaint,
+			user=self.request.user,
+			action='Complaint submitted.',
+			old_value='',
+			new_value='Complaint submitted.',
+			)
 
 
 	def update(self, request, *args, **kwargs):
@@ -59,7 +68,23 @@ class ComplaintViewSet(ModelViewSet):
 			if not submitted_fields.issubset(allowed_fields):
 				raise PermissionDenied("You can only update the title and description.")
 
-		return super().update(request, *args, **kwargs)
+		old_title = complaint.title
+		old_description= complaint.description
+
+		response = super().update(request, *args, **kwargs)
+
+		new_title = response.data['title']
+		new_description = response.data['description']
+
+
+		create_activity_log(	
+			complaint=complaint,
+			user=self.request.user,
+			action="Complaint Updated.",
+			old_value=f"Title: {old_title}, Description: {old_description}",
+			new_value=f"Title: {new_title}, Description: {new_description}"
+			)
+		return response
 
 	@action(
 		detail=True,
@@ -89,9 +114,18 @@ class ComplaintViewSet(ModelViewSet):
 				}
 				})
 
+		old_officer = complaint.assigned_to
 		complaint.assigned_to = officer
 		complaint.status = Complaint.Status.ASSIGNED
 		complaint.save()
+
+		create_activity_log(
+			complaint=complaint,
+			user=request.user,
+			action=f'Complaint assigned to officer.',
+			old_value=str(old_officer) if old_officer else "Unassigned",
+			new_value=str(officer),
+			)
 
 		return Response({
 			"msg": "Complaint assigned to officer.",
@@ -118,6 +152,9 @@ class ComplaintViewSet(ModelViewSet):
 
 		updated_status = request.data.get('status')
 
+		if not isinstance(updated_status, str):
+			raise ValidationError("Status must be a string.")
+
 		updated_status = updated_status.lower()
 		current_status = complaint.status
 
@@ -127,9 +164,6 @@ class ComplaintViewSet(ModelViewSet):
 		if complaint.assigned_to != request.user:
 			raise PermissionDenied("You can only change the status of complaints assigned to you.")
 
-		if not isinstance(updated_status, str):
-			raise ValidationError("Status must be a string.")
-
 		if updated_status not in allowed_transitions.get(current_status, []):
 			raise ValidationError(
 				f"Cannot change status from {current_status} to {updated_status}.")
@@ -137,11 +171,33 @@ class ComplaintViewSet(ModelViewSet):
 		complaint.status = updated_status
 		complaint.save()
 
+		create_activity_log(
+			complaint=complaint,
+			user=request.user,
+			action=f'Complaint status updated.',
+			old_value=current_status,
+			new_value=complaint.status,
+			)
+
 		return Response({"msg": "Complaint Status Updated.",
 			"status": True,
 			"body": self.get_serializer(complaint).data
 			})
 
+	@action(
+		detail=True,
+		methods=['get'],
+		url_path='history',
+		permission_classes=[IsAuthenticated,IsAdminOrReadOnly]
+		)
+	def complaint_history(self,request,*args,**kwargs):
+		complaint = self.get_object()
 
+		activity_log = ActivityLog.objects.filter(complaint=complaint)
+		serializer = ActivityLogSerializer(activity_log,many=True)
 
-
+		return Response ({
+		'msg': "Complaint activity log generated.",
+		"status": True,
+		"result": serializer.data
+		})
