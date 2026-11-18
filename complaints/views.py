@@ -28,6 +28,9 @@ class ComplaintViewSet(ModelViewSet):
 	serializer_class = ComplaintSerializer
 	permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
 	lookup_field = "tracking_id"
+	filterset_fields = ['status','priority', 'category']
+	search_fields = ['title', 'description', 'tracking_id']
+	ordering_fields =  ['created_at', 'priority', 'title']
 
 	def get_queryset(self):
 		user = self.request.user
