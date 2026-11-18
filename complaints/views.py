@@ -269,3 +269,31 @@ class ComplaintViewSet(ModelViewSet):
 			)
 
 			return Response (serializer.data, status=201)
+
+	@action(
+		detail=False,
+		methods=['get'],
+		permission_classes=[IsAuthenticated, IsAdminOrReadOnly]
+		)
+	def statistics(self, request, *args, **kwargs):
+		total_complaints = Complaint.objects.count()
+		submitted_complaints = Complaint.objects.filter(status=Complaint.Status.SUBMITTED).count()
+		in_progress_complaints = Complaint.objects.filter(status=Complaint.Status.IN_PROGRESS).count()
+		resolved_complaints = Complaint.objects.filter(status=Complaint.Status.RESOLVED).count()
+		priority_statistics = {}
+		priorities = ['low', 'medium', 'high', 'urgent']
+
+		for priority in priorities:
+			priority_statistics[priority] = Complaint.objects.filter(priority=priority).count()
+
+		return Response ({
+		'msg': "Complaint Statistics generated.",
+		"status": True,
+		"body": {
+		'total_complaints': total_complaints,
+		'submitted_complaints': submitted_complaints,
+		'in_progress_complaints': in_progress_complaints,
+		'resolved_complaints': resolved_complaints,
+		'priority_statistics': priority_statistics
+		}
+		})
