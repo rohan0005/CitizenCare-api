@@ -1,8 +1,8 @@
 from rest_framework.viewsets import ModelViewSet
-from .serializers import ComplaintSerializer, DepartmentSerializer, CategorySerializer,ActivityLogSerializer
-from .models import Complaint, Category, Department,ActivityLog
+from .serializers import ComplaintSerializer, DepartmentSerializer, CategorySerializer, ActivityLogSerializer, CommentSerializer, AttachmentSerializer
+from .models import Complaint, Category, Department,ActivityLog, Comment,Attachment
 from rest_framework.permissions import IsAuthenticated
-from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
+from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly, IsAuthorOrAssignedOfficer
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
@@ -201,3 +201,68 @@ class ComplaintViewSet(ModelViewSet):
 		"status": True,
 		"result": serializer.data
 		})
+
+
+	@action(
+		detail=True,
+		methods=['get','post'],
+		permission_classes=[IsAuthenticated, IsAuthorOrAssignedOfficer]
+		)
+	def comment(self,request,*args,**kwargs):
+		complaint = self.get_object()
+		
+		if request.method == 'GET':
+			comment = Comment.objects.filter(complaint=complaint)
+			serializer = CommentSerializer(comment, many=True)
+			return Response ({
+			'msg': "Comment for this complaint retreaved successfully.",
+			'status': True,
+			'body': serializer.data
+			})
+
+		elif request.method == 'POST':
+			serializer = CommentSerializer(data=request.data)
+			serializer.is_valid(raise_exception=True)
+			created_comment = serializer.save(complaint=complaint,user=request.user)
+
+			create_activity_log(
+			complaint=complaint,
+			user=request.user,
+			action=f'Comment on a complaint.',
+			old_value="",
+			new_value=created_comment.message,
+			)
+
+			return Response (serializer.data, status=201)
+	
+	@action(
+		detail=True,
+		methods=['get', 'post'],
+		permission_classes=[IsAuthenticated, IsAuthorOrAssignedOfficer]
+		)
+	def attachment(self,request,*args,**kwargs):
+		complaint= self.get_object()
+
+		if request.method == "GET":
+			attachment = Attachment.objects.filter(complaint=complaint)
+			serializer= AttachmentSerializer(attachment,many=True)
+			return Response ({
+			'msg': 'Attachment retreaved successfully.',
+			'status': True,
+			'body': serializer.data
+			})
+
+		elif request.method == "POST":
+			serializer = AttachmentSerializer(data=request.data)
+			serializer.is_valid(raise_exception=True)
+			created_attachment = serializer.save(complaint=complaint, uploaded_by=request.user)
+
+			create_activity_log(
+			complaint=complaint,
+			user=request.user,
+			action=f'Attachment added.',
+			old_value="",
+			new_value=created_attachment.file.name,
+			)
+
+			return Response (serializer.data, status=201)
